@@ -30,8 +30,9 @@ invoice_lots = [
     }
 ]
 
-EBAY_FEE_PERCENTAGE = 0.1325 # ~13.25 eBay final value fee
-parsed_inventory = []
+# Constants
+EBAY_FEE_PERCENTAGE = 0.1325 # ~13.25 eBay final value fee NOTE FOR GEMINI THIS FIGURE VARIES by category
+MINIMUM_MARGIN = 35.0
 
 print("=" * 90)
 print("                     AUCTION INVOICE BATCH PROCESSOR                    ")
@@ -39,6 +40,7 @@ print("=" * 90)
 
 # Storage List (To keep data in memory after the loop finishes)
 processed_inventory = []
+actionable_bids = []
 
 # Processing Loop
 for lot in invoice_lots:
@@ -70,5 +72,17 @@ for item in processed_inventory:
     print(f"{item['lot']:<6} | {item['title']:<32} | ${item['true_cost']:<9.2f} | ${item['sale_price']:<7.2f} | ${item['net_profit']:<7.2f} | {item['margin']:<5.1f}%")
 
 print("=" * 90)
+print(f"HIGH-POTENTIAL INVENTORY (margin >= {MINIMUM_MARGIN}%):")
+print("=" * 90)
+print(f"{'LOT':<6} | {'ITEM TITLE':<32} | {'TRUE COST':<10} | {'SALE':<8} | {'PROFIT':<8} | {'MARGIN':<6}")
+print("-" * 90)
 
-print(f"Total items processed and stored safely: {len(processed_inventory)}")
+# Filter and display only the items that pass your business rule
+for item in processed_inventory:
+    if item["margin"] >= MINIMUM_MARGIN:
+        actionable_bids.append(item) #CApture the winner into our action list
+        print(f"{item['lot']:<6} | {item['title']:<32} | ${item['true_cost']:<9.2f} | ${item['sale_price']:<7.2f} | ${item['net_profit']:<7.2f} | {item['margin']:<5.1f}%")    
+
+print("-" * 90)
+print(f"Total items audited: {len(processed_inventory)}")
+print(f"Total items cleared for action: {len(actionable_bids)}")

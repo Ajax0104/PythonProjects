@@ -33,8 +33,8 @@ with open('auction_manifest.csv', mode='r') as file:
         marketplace_fee = sale_price * EBAY_FEE_PERCENTAGE
 
         # Net profit & margin calculations
-        net_profit = sale_price - (true_cost + marketplace_fee)
-        margin = (net_profit / sale_price) * 100
+        net_profit = round(sale_price - (true_cost + marketplace_fee), 2)
+        margin = round((net_profit / sale_price) * 100, 1)
 
         # save the processed data into our storage list
         # Notice we convert lot back to int or keep as string depending on preference
@@ -48,24 +48,41 @@ with open('auction_manifest.csv', mode='r') as file:
         })
 
 # Display formatted profit summary table
-print(f"{'LOT':<6} | {'ITEM TITLE':<32} | {'TRUE COST':<10} | {'SALE':<8} | {'PROFIT':<8} | {'MARGIN':<6}")
+print(f"{'LOT':<6} | {'ITEM TITLE':<38} | {'TRUE COST':<10} | {'SALE':<8} | {'PROFIT':<8} | {'MARGIN':<6}")
 print("-" * 90)
 
 for item in processed_inventory:
-    print(f"{item['lot']:<6} | {item['title']:<32} | ${item['true_cost']:<9.2f} | ${item['sale_price']:<7.2f} | ${item['net_profit']:<7.2f} | {item['margin']:<5.1f}%")
+    print(f"{item['lot']:<6} | {item['title']:<38} | ${item['true_cost']:<9.2f} | ${item['sale_price']:<7.2f} | ${item['net_profit']:<7.2f} | {item['margin']:<5.1f}%")
 
 print("=" * 90)
 print(f"HIGH-POTENTIAL INVENTORY (margin >= {MINIMUM_MARGIN}%):")
 print("=" * 90)
-print(f"{'LOT':<6} | {'ITEM TITLE':<32} | {'TRUE COST':<10} | {'SALE':<8} | {'PROFIT':<8} | {'MARGIN':<6}")
+print(f"{'LOT':<6} | {'ITEM TITLE':<38} | {'TRUE COST':<10} | {'SALE':<8} | {'PROFIT':<8} | {'MARGIN':<6}")
 print("-" * 90)
 
 # Filter and display only the items that pass your business rule
 for item in processed_inventory:
     if item["margin"] >= MINIMUM_MARGIN:
         actionable_bids.append(item) #CApture the winner into our action list
-        print(f"{item['lot']:<6} | {item['title']:<32} | ${item['true_cost']:<9.2f} | ${item['sale_price']:<7.2f} | ${item['net_profit']:<7.2f} | {item['margin']:<5.1f}%")    
+        print(f"{item['lot']:<6} | {item['title']:<38} | ${item['true_cost']:<9.2f} | ${item['sale_price']:<7.2f} | ${item['net_profit']:<7.2f} | {item['margin']:<5.1f}%")    
 
 print("-" * 90)
 print(f"Total items audited: {len(processed_inventory)}")
 print(f"Total items cleared for action: {len(actionable_bids)}")
+
+# Export actionable bids to a new CSV file for the next pipeline
+
+output_filename = "actionable_bids.csv"
+fieldnames = ["lot", "title", "true_cost", "sale_price", "net_profit", "margin"]
+
+with open(output_filename, mode="w", newline="") as outfile:
+    writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+
+    # Write the column headers first
+    writer.writeheader()
+
+    # Write each winning item row-by-row
+    for item in actionable_bids:
+        writer.writerow(item)
+
+print(f"\Succesfully exported {len(actionable_bids)} actionable bids to '{output_filename}'!")

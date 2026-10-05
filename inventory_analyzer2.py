@@ -8,6 +8,8 @@ import csv
 # Constants
 EBAY_FEE_PERCENTAGE = 0.1325 # ~13.25 eBay final value fee NOTE FOR GEMINI THIS FIGURE VARIES by category
 MINIMUM_MARGIN = 35.0
+SHIPPING_COST = 16.50
+EFFECTIVE_TAX_RATE = .08 #Blended historical sales tax rate
 
 print("=" * 90)
 print("                     AUCTION INVOICE BATCH PROCESSOR                    ")
@@ -29,11 +31,15 @@ with open('auction_manifest.csv', mode='r') as file:
         true_cost = float(row["bid"]) + float(row["premium"]) + float(row["tax"])
         sale_price = float(row["projected_sale"])
 
+        # Intermediate variables for precise fee modeling
+        estimated_tax = sale_price * EFFECTIVE_TAX_RATE
+        total_transaction_value = sale_price + SHIPPING_COST + estimated_tax
+       
         # Marketplace Fee
-        marketplace_fee = sale_price * EBAY_FEE_PERCENTAGE
+        marketplace_fee = total_transaction_value * EBAY_FEE_PERCENTAGE
 
         # Net profit & margin calculations
-        net_profit = round(sale_price - (true_cost + marketplace_fee), 2)
+        net_profit = round(sale_price - (true_cost + marketplace_fee + SHIPPING_COST), 2)
         margin = round((net_profit / sale_price) * 100, 1)
 
         # save the processed data into our storage list
@@ -63,7 +69,7 @@ print("-" * 90)
 # Filter and display only the items that pass your business rule
 for item in processed_inventory:
     if item["margin"] >= MINIMUM_MARGIN:
-        actionable_bids.append(item) #CApture the winner into our action list
+        actionable_bids.append(item) #Capture the winner into our action list
         print(f"{item['lot']:<6} | {item['title']:<38} | ${item['true_cost']:<9.2f} | ${item['sale_price']:<7.2f} | ${item['net_profit']:<7.2f} | {item['margin']:<5.1f}%")    
 
 print("-" * 90)

@@ -24,10 +24,15 @@ def calculate_metrics(sale_price, true_cost):
 def main():
     print("Running Inventory Analzer v3 (Modular Architecture)...")
 
-    with open("auction_manifest.csv", mode="r") as file:   # Ask gemini why no space before =
-        reader = csv.DictReader(file)
+    input_filename= "auction_manifest.csv"
+    output_filename = "profitable_lots.csv"
 
-        surviving_items = 0
+    # Create an empty list in memory to hold our survivors
+    surviving_lots = []
+
+    # Open input file for reading, and output file for writing simultaneously
+    with open(input_filename, mode="r") as infile:
+        reader = csv.DictReader(infile)
 
         for row in reader:
             true_cost = (
@@ -39,13 +44,33 @@ def main():
             net_profit, margin = calculate_metrics(sale_price, true_cost)
 
             if margin >= MINIMUM_MARGIN:
-                surviving_items += 1
-                print(
-                    f"Passed: Lot {row['lot']} - {row['title']} | Margin: {margin}% | Profit: ${net_profit}"
-                )
 
-        print(f"\nAnalysis complete, Total survivors: {surviving_items}")
+                # Inject our calculations directly into the row dictionary
+                row["net_profit"] = net_profit
+                row["margin"] = margin
 
+                # Append (add) this dictionary to our list in memory
+                surviving_lots.append(row)
+
+    # sort the list in memory: Highest margin to lowest 
+    sorted_survivors = sorted(
+        surviving_lots,
+        key=lambda item: float(item["magin"]),
+        reverse=True
+    )
+
+    # Now, write the sorted data out to our CSv file
+    if sorted_survivors:
+
+        # Grab fieldnames from the first item and add our new columns
+        fieldnames = list(sorted_survivor[0].keys())
+
+        with open(output_filename, mode="w", newline="") as outfile:
+                writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(sorted_survivors) # write all rows at once!
+
+    print(f"\nAnalysis complete. {len(sorted_survivors)} winning lots sorted and exported to {output_filename}")
 
 if __name__ == "__main__":
     main()

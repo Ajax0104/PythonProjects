@@ -2,7 +2,7 @@ import csv
 
 # --- Zone 1: Global Constants ---
 EBAY_FEE_PERCENTAGE = 0.1325
-MINIMUM_MARGIN = 35.0
+MINIMUM_MARGIN = 10.0
 SHIPPING_COST = 16.50
 EFFECTIVE_TAX_RATE = 0.08 #Blended historical rate (~8%)
 
@@ -24,7 +24,7 @@ def calculate_metrics(sale_price, true_cost):
 def main():
     print("Running Inventory Analzer v3 (Modular Architecture)...")
 
-    input_filename= "auction_manifest.csv"
+    input_filename= "auction_manifest.csv"        
     output_filename = "profitable_lots.csv"
 
     # Create an empty list in memory to hold our survivors
@@ -33,13 +33,22 @@ def main():
     # Open input file for reading, and output file for writing simultaneously
     with open(input_filename, mode="r") as infile:
         reader = csv.DictReader(infile)
-
+        
         for row in reader:
-            true_cost = (
-                float(row["bid"]) + float(row["premium"]) + float(row["tax"])
-            )
-            sale_price = float(row["projected_sale"])
+             
+            try:
+                # Safely attempt to convert all incoming CSV string values to floats
+                bid = float(row["bid"])
+                premium = float(row["premium"])
+                tax = float(row["tax"])
+                sale_price = float(row["projected_sale"])
 
+            except ValueError:
+                # log the corrupted lot and jump straight to the next iteration
+                print(f"Skipped lot {row.get('lot', 'unknown')}: Invalid numerical data")
+            
+            true_cost = bid + premium + tax
+        
             # Call our modular function
             net_profit, margin = calculate_metrics(sale_price, true_cost)
 
@@ -55,7 +64,7 @@ def main():
     # sort the list in memory: Highest margin to lowest 
     sorted_survivors = sorted(
         surviving_lots,
-        key=lambda item: float(item["magin"]),
+        key=lambda item: float(item["margin"]),
         reverse=True
     )
 
@@ -63,7 +72,7 @@ def main():
     if sorted_survivors:
 
         # Grab fieldnames from the first item and add our new columns
-        fieldnames = list(sorted_survivor[0].keys())
+        fieldnames = list(sorted_survivors[0].keys())
 
         with open(output_filename, mode="w", newline="") as outfile:
                 writer = csv.DictWriter(outfile, fieldnames=fieldnames)

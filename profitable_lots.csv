@@ -1,2 +1,2 @@
-lot,bid,max_allowable_bid,premium,tax,projected_sale,net_profit,margin
-8108,75.0,76.4,11.25,5.18,220.0,78.4,35.6
+lot,current_bid,premium,tax,max_allowable_bid,projected_sale,net_profit,margin
+8108,75.0,11.25,5.18,76.4,220.0,78.4,35.6

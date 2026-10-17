@@ -2,10 +2,9 @@ import csv
 from lot_item import LotItem
 from manifest import Manifest
 
-# --- ZONE 2: GLOBAL CONSTANTS ---
-MINIMUM_MARGIN = 35.0
-
-# --- ZONE 3: MAIN EXECUTION ---    
+# --- GLOBAL CONSTANTS ---
+TARGET_MARGIN = 35.0
+    
 def main():
     print("Running Inventory Analyzer v4 (object-oriented Pipeline)...")
 
@@ -18,12 +17,10 @@ def main():
 
         for row in reader:
             try:
-                # Instantiating a smart LotItem object straight from the CSV row
+                # Instantiates LotItem (premium and tax calculated automatically inside LotItem)
                 item = LotItem(
                     lot_id=row["lot"],
                     bid=row["bid"],
-                    premium=row["premium"],
-                    tax=row["tax"],
                     sale_price=row["projected_sale"]
                 )
                 batch.add_item(item)
@@ -33,17 +30,17 @@ def main():
                     )
                 continue
 
-            # Retrieve items meeting or exceeding margin gatekeeper directly from Manifest
-    profitable_items = batch.get_profitable_items(
-        minimum_margin=MINIMUM_MARGIN
-    )
+    # Retrieve items meeting or exceeding margin gatekeeper directly from Manifest
+    viable_items = batch.get_viable_lots(target_margin=TARGET_MARGIN)
 
     # Sort winners descending by margin
     sorted_winners = sorted(
-        profitable_items, key=lambda item: item.calculate_margin(), reverse=True
+        viable_items, 
+        key=lambda item: item.calculate_max_bid(TARGET_MARGIN),
+        reverse=True,
     )
 
-    # Export structured winners to CSV
+    # Export auction sheet to CSV
     if sorted_winners:
         export_rows = [
             {
@@ -51,9 +48,7 @@ def main():
                 "current_bid": item.bid,
                 "premium": item.premium,
                 "tax": item.tax,
-                "max_allowable_bid": item.calculate_max_bid(
-                    target_margin=MINIMUM_MARGIN
-                ),
+                "max_allowable_bid": item.calculate_max_bid(TARGET_MARGIN),
                 "projected_sale": item.sales_price,
                 "net_profit": item.calculate_net_profit(),
                 "margin": item.calculate_margin(),
@@ -67,13 +62,13 @@ def main():
             writer.writeheader()
             writer.writerows(export_rows)
 
-    # Output batch-level metrics managed by Manifest container
+    # Output manifest summary
     print(f"\n--- {batch.manifest_name} Summary ---")
     print(f"Total Items Ingested: {len(batch.items)}")
-    print(f"Total Capital Required: ${batch.total_required_capital():.2f}")
+    print(f"Total Capital Required (At current BIDS): ${batch.total_required_capital():.2f}")
     print(f"Total Projected Net Profit: ${batch.total_projected_profit():.2f}")
     print(
-        f"Winning Lots Exported (>= {MINIMUM_MARGIN}% Margin): {len(sorted_winners)} -> {output_filename}"
+        f"Viable Lots Exported (Max Bid >= Current Bid at {TARGET_MARGIN}% Target): {len(sorted_winners)} -> {output_filename}"
     )
 
 

@@ -1,4 +1,5 @@
 import csv
+from comp_engine import process_manifest_comps
 from lot_item import LotItem
 from manifest import Manifest
 
@@ -8,11 +9,15 @@ TARGET_MARGIN = 35.0
 def main():
     print("Running Inventory Analyzer v4 (object-oriented Pipeline)...")
 
+    process_manifest_comps(
+        input_file="auction_manifest.csv", output_file="auction_manifest.csv"
+    )
+    
     input_filename = "auction_manifest.csv"
     output_filename = "profitable_lots.csv"
     batch = Manifest("Crowe Owasso Manifest")
 
-    with open(input_filename, mode="r") as infile:
+    with open(input_filename, mode="r", encoding="utf-8") as infile:
         reader = csv.DictReader(infile)
 
         for row in reader:
@@ -20,6 +25,7 @@ def main():
                 # Instantiates LotItem (premium and tax calculated automatically inside LotItem)
                 item = LotItem(
                     lot_id=row["lot"],
+                    title=row.get("title", ""),
                     bid=row["bid"],
                     sale_price=row["projected_sale"]
                 )
@@ -45,9 +51,8 @@ def main():
         export_rows = [
             {
                 "lot": item.lot_id,
+                "title": item.title,
                 "current_bid": item.bid,
-                "premium": item.premium,
-                "tax": item.tax,
                 "max_allowable_bid": item.calculate_max_bid(TARGET_MARGIN),
                 "projected_sale": item.sales_price,
                 "net_profit": item.calculate_net_profit(),
@@ -57,7 +62,9 @@ def main():
         ]
 
         fieldnames = list(export_rows[0].keys())
-        with open(output_filename, mode="w", newline="") as outfile:
+        with open(
+            output_filename, mode="w", newline="", encoding="utf-8"
+            ) as outfile:
             writer = csv.DictWriter(outfile, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(export_rows)

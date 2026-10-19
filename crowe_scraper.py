@@ -1,5 +1,6 @@
 import csv  # Standard Python library to read and write CSV spreadsheet files
 import re  # Regular Expression library used to search, isolate, and clean text patterns
+import time
 import requests  # HTTP library used to fetch web page source HTML from URLs
 from bs4 import (
     BeautifulSoup,
@@ -42,10 +43,10 @@ def clean_lot_title(raw_text, lot_id):
 
 def fetch_crowe_catalog(
     catalog_url="https://bids.crauctions.com/auctions/48980-amazon-semi-load-auction-8166",
-    total_pages=1,
+    total_pages=18,
+    max_retries=3,
 ):
-    """Scrapes lot titles, condition flags, current high bids, and lot IDs directly from target catalog URL."""
-    # Define browser user-agent header so auction server treats our script like a standard web browser
+    """Scrapes lot titles, condition flags, current high bids, and lot IDs with automatic retry handling on timeouts."""
     headers = {
         "User-Agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -54,54 +55,58 @@ def fetch_crowe_catalog(
         )
     }
 
-    # Clean trailing query symbols (? or &) from raw catalog URL input
     base_url = catalog_url.rstrip("?&")
-    scraped_lots = []  # List to store dictionary records for every lot card parsed
+    scraped_lots = []
+    seen_lots = set()  # Tracks processed Lot IDs to eliminate duplicate banner items
 
-    # Loop through requested page range (page 1 to total_pages)
     for page in range(1, total_pages + 1):
-        # Build clean pagination link: base_url?page=N
-        page_url = f"{base_url}?page={page}"
+        page_url = f"{base_url}?page={page}&items=50"
         print(f"Fetching page {page} of {total_pages}: {page_url}")
 
-        try:
-            # Issue GET request over internet to fetch HTML content of catalog page
-            response = requests.get(page_url, headers=headers, timeout=10)
-            response.raise_for_status()  # Trigger exception if HTTP response code is 4xx or 5xx
-        except requests.RequestException as error:
-            print(f"Failed to fetch page {page}: {error}")
-            continue  # Skip to next page iteration if network request fails
+        response = None
+        # Retry loop to handle transient network timeouts (e.g., Page 12 delay)
+        for attempt in range(1, max_retries + 1):
+            try:
+                response = requests.get(page_url, headers=headers, timeout=20)
+                response.raise_for_status()
+                break  # Request succeeded, exit retry loop
+            except requests.RequestException as error:
+                print(
+                    f"  Attempt {attempt}/{max_retries} failed for page {page}: {error}"
+                )
+                if attempt < max_retries:
+                    time.sleep(2)  # Wait 2 seconds before retrying
+                else:
+                    print(
+                        f"Skipping page {page} after {max_retries} failed attempts."
+                    )
 
-        # Parse raw HTML text string into navigable BeautifulSoup object
+        if not response or response.status_code != 200:
+            continue
+
         soup = BeautifulSoup(response.text, "html.parser")
 
-        # Find all HTML div container elements matching lot card class names
         lot_cards = soup.find_all("div", class_=re.compile(r"lot|item|card", re.I))
         if not lot_cards:
-            # Secondary CSS fallback selector if class names vary
             lot_cards = soup.select("[class*='lot'], [class*='item']")
 
-        # Iterate over every HTML lot card container found on current catalog page
         for card in lot_cards:
-            # Convert HTML card block into single raw text string with space separators
             text = card.get_text(separator=" ", strip=True)
 
-            # Search text for 'Lot [digits]' pattern
             lot_match = re.search(r"Lot\s*(\d+)", text, re.I)
-            # Search text for '$[dollars].[cents]' current bid pattern
             bid_match = re.search(r"\$(\d+\.\d{2})", text)
 
-            # Only process block if valid Lot ID and Current Bid were detected
             if lot_match and bid_match:
-                lot_id = (
-                    lot_match.group(1)
-                )  # Extracted numerical ID string (e.g., '8014')
-                bid = bid_match.group(1)  # Extracted dollar string (e.g., '10.00')
+                lot_id = lot_match.group(1)
 
-                # Pass card text to helper function to extract clean product title and condition tags
+                # Skip if lot was already scraped from a featured card or banner
+                if lot_id in seen_lots:
+                    continue
+                seen_lots.add(lot_id)
+
+                bid = bid_match.group(1)
                 title, packaging, damaged = clean_lot_title(text, lot_id)
 
-                # Append structured lot dictionary record to master scraped list
                 scraped_lots.append(
                     {
                         "lot": lot_id,
@@ -109,12 +114,11 @@ def fetch_crowe_catalog(
                         "bid": bid,
                         "packaging": packaging,
                         "damaged": damaged,
-                        "projected_sale": "0.00",  # Placeholder value to be updated by Stage 2 comp engine
+                        "projected_sale": "0.00",
                     }
                 )
 
     return scraped_lots
-
 
 def export_to_manifest(data, filename="auction_manifest.csv"):
     """Writes scraped lot dictionaries into auction_manifest.csv spreadsheet format."""
@@ -151,6 +155,6 @@ if __name__ == "__main__":
     TARGET_CATALOG_URL = "https://bids.crauctions.com/auctions/48980-amazon-semi-load-auction-8166"
 
     # Execute catalog scrape for page 1
-    lots = fetch_crowe_catalog(catalog_url=TARGET_CATALOG_URL, total_pages=1)
+    lots = fetch_crowe_catalog(catalog_url=TARGET_CATALOG_URL, total_pages=18)
     # Write scraped lot records to auction_manifest.csv
     export_to_manifest(lots)

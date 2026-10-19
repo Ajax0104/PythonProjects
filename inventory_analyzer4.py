@@ -46,6 +46,18 @@ def main():
         reverse=True,
     )
 
+    # Calculate capital and profit metrics exclusively for winning/viable lots
+    viable_capital_at_current = sum(
+        item.calculate_true_cost() for item in sorted_winners
+    )
+    viable_capital_at_max = sum(
+        item.calculate_max_bid(TARGET_MARGIN) * 1.219
+        for item in sorted_winners
+    )
+    viable_projected_profit = sum(
+        item.calculate_net_profit() for item in sorted_winners
+    )
+
     # Export auction sheet to CSV
     if sorted_winners:
         export_rows = [
@@ -69,14 +81,28 @@ def main():
             writer.writeheader()
             writer.writerows(export_rows)
 
-    # Output manifest summary
-    print(f"\n--- {batch.manifest_name} Summary ---")
-    print(f"Total Items Ingested: {len(batch.items)}")
-    print(f"Total Capital Required (At current BIDS): ${batch.total_required_capital():.2f}")
-    print(f"Total Projected Net Profit: ${batch.total_projected_profit():.2f}")
+   # Summary Readout
+    print(f"\n==========================================")
+    print(f"--- {batch.manifest_name} Underwriting Summary ---")
+    print(f"==========================================")
+    print(f"Total Catalog Lots Ingested : {len(batch.items)}")
     print(
-        f"Viable Lots Exported (Max Bid >= Current Bid at {TARGET_MARGIN}% Target): {len(sorted_winners)} -> {output_filename}"
+        f"Total Full Catalog Cost     : ${batch.total_required_capital():.2f}"
     )
+    print(f"------------------------------------------")
+    print(
+        f"Viable Actionable Lots      : {len(sorted_winners)} -> {output_filename}"
+    )
+    print(
+        f"Capital Needed (At Current) : ${viable_capital_at_current:.2f}"
+    )
+    print(
+        f"Capital Ceiling (At Max Bid): ${viable_capital_at_max:.2f}"
+    )
+    print(
+        f"Projected Viable Net Profit : ${viable_projected_profit:.2f}"
+    )
+    print(f"==========================================")
 
 
 if __name__ == "__main__":

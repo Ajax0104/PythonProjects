@@ -137,20 +137,26 @@ def fetch_lowest_active_bin(query, outlier_threshold=0.15):
 if __name__ == "__main__":
     print("--- TESTING SMART OUTLIER MARKET FLOOR ENGINE ---\n")
 
-    # Test Case 1: Fire-Sale Outlier ($10 vs $22, $25)
+    # 1. Static Math Outlier Verification
     outlier_prices = [10.00, 22.00, 25.00]
     outlier_res = calculate_smart_market_floor(outlier_prices, outlier_threshold=0.15)
-    print("Test 1: Fire-Sale Outlier")
+    print("Test 1: Fire-Sale Outlier Math")
     print(f"  Top 3 Prices : {outlier_prices}")
     print(f"  Top 3 Mean   : ${sum(outlier_prices)/3:.2f}")
     print(f"  Smart Floor  : ${outlier_res:.2f}  (Adjusted upward from $10.00)")
     print("-" * 55)
 
-    # Test Case 2: Tight Market Cluster ($50, $52, $54)
-    cluster_prices = [50.00, 52.00, 54.00]
-    cluster_res = calculate_smart_market_floor(cluster_prices, outlier_threshold=0.15)
-    print("Test 2: Tight Market Cluster")
-    print(f"  Top 3 Prices : {cluster_prices}")
-    print(f"  Top 3 Mean   : ${sum(cluster_prices)/3:.2f}")
-    print(f"  Smart Floor  : ${cluster_res:.2f}  (Anchored to absolute lowest)")
-    print("-" * 55)
+    # 2. Query Title Lookups via fetch_lowest_active_bin
+    test_queries = [
+        "Impala Rear Driver Power Window Regulator",
+        "Storage Shelves Heavy Duty",
+        "Right Passenger Running Board Motor 2021-25",
+        "Fridge Freezer Door Gasket for Whirlpool",
+    ]
+
+    print("Test 2: Query Title Lookups (Mock/Live Engine)")
+    for title in test_queries:
+        floor_price = fetch_lowest_active_bin(title)
+        print(f"  Query Title : '{title}'")
+        print(f"  Smart Floor : ${floor_price:.2f}")
+        print("-" * 55)

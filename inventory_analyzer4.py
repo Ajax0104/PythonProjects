@@ -1,5 +1,6 @@
 import csv
-from comp_engine import process_manifest_comps
+from comp_engine import estimate_market_value
+from crowe_scraper import scrape_manifest
 from lot_item import LotItem
 from manifest import Manifest
 
@@ -9,77 +10,101 @@ TARGET_MARGIN = 35.0
 def main():
     print("Running Inventory Analyzer v4 (object-oriented Pipeline)...")
 
-    process_manifest_comps(
-        input_file="auction_manifest.csv", output_file="auction_manifest.csv"
-    )
-    
     input_filename = "auction_manifest.csv"
     output_filename = "profitable_lots.csv"
+
+    try:
+        scrape_manifest(input_filename)
+    except Exception as e:
+        print(f"Scraper skipped/failed ({e})")
+
     batch = Manifest("Crowe Owasso Manifest")
 
     with open(input_filename, mode="r", encoding="utf-8") as infile:
         reader = csv.DictReader(infile)
 
-        for row in reader:
+        # 1. Slice only the first 50 rows for testing
+        rows = list(reader)[:50]  # Take first 10 lots for testing
+
+        audit_rows = []
+        
+        for idx, row in enumerate(rows, start=1):
             try:
-                # Instantiates LotItem (premium and tax calculated automatically inside LotItem)
+                raw_title = row.get("title", "")
+                bid_val = float(row.get("bid", 0.0) or 0.0)
+
+                print(
+                    f"[{idx}/50] Comping lot {row.get('lot', '')}: {raw_title[:30]}..."
+                )
+
+                # Lookup market floor valuation
+                projected_sale, comps = estimate_market_value(raw_title)
+
+                for rank, comp in enumerate(comps, start=1):
+                    audit_rows.append({
+                        "crowe_lot": row.get("lot", ""),
+                        "crowe_title": raw_title,
+                        "comp_rank": rank,
+                        "ebay_title": comp.get("ebay_title", ""),
+                        "ebay_price": comp.get("ebay_price", 0.0),
+                        "item_url": comp.get("item_url", ""),
+                    })
+
                 item = LotItem(
-                    lot_id=row["lot"],
-                    title=row.get("title", ""),
-                    bid=row["bid"],
-                    sale_price=row["projected_sale"]
+                    lot_id=row.get("lot", ""),
+                    title=raw_title,
+                    bid=bid_val,
+                    sale_price=projected_sale,
                 )
                 batch.add_item(item)
-            except ValueError:
+            except (ValueError, KeyError):
                 print(
                     f"Skipped lot {row.get('lot', 'unknown')}: Invalid numerical data"
-                    )
+                )
                 continue
 
     # Retrieve items meeting or exceeding margin gatekeeper directly from Manifest
-    viable_items = batch.get_viable_lots(target_margin=TARGET_MARGIN)
+    viable_items = batch.get_viable_lots()
 
     # Sort winners descending by margin
     sorted_winners = sorted(
         viable_items, 
-        key=lambda item: item.calculate_max_bid(TARGET_MARGIN),
+        key=lambda item: item.max_bid,
         reverse=True,
     )
 
     # Calculate capital and profit metrics exclusively for winning/viable lots
     viable_capital_at_current = sum(
-        item.calculate_true_cost() for item in sorted_winners
+        item.true_cost for item in sorted_winners
     )
     viable_capital_at_max = sum(
-        item.calculate_max_bid(TARGET_MARGIN) * 1.219
-        for item in sorted_winners
+        item.max_acquisition_cost for item in sorted_winners
     )
+    
     viable_projected_profit = sum(
-        item.calculate_net_profit() for item in sorted_winners
+        item.net_profit for item in sorted_winners
     )
 
     # Export auction sheet to CSV
     if sorted_winners:
-        export_rows = [
-            {
-                "lot": item.lot_id,
-                "title": item.title,
-                "current_bid": item.bid,
-                "max_allowable_bid": item.calculate_max_bid(TARGET_MARGIN),
-                "projected_sale": item.sales_price,
-                "net_profit": item.calculate_net_profit(),
-                "margin": item.calculate_margin(),
-            }
-            for item in sorted_winners
-        ]
-
+        export_rows = [item.to_dict(TARGET_MARGIN) for item in sorted_winners]
         fieldnames = list(export_rows[0].keys())
+        
         with open(
             output_filename, mode="w", newline="", encoding="utf-8"
-            ) as outfile:
+        ) as outfile:
+            
             writer = csv.DictWriter(outfile, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(export_rows)
+
+    if audit_rows:
+
+        with open("comp_audit.csv", mode="w", newline="", encoding="utf-8") as f:
+
+            writer = csv.DictWriter(f, fieldnames=list(audit_rows[0].keys()))
+            writer.writeheader()
+            writer.writerows(audit_rows)
 
    # Summary Readout
     print(f"\n==========================================")

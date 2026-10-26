@@ -19,13 +19,15 @@ class Manifest:
         return [
             item 
             for item in self.items 
-            if item.calculate_max_bid(target_margin) >= item.bid
+            if item.max_bid >= item.bid
         ]
 
-    def total_required_capital(self): 
-        """Calculates total cash required to purchase all items at current bids."""
-        return round(sum(item.calculate_true_cost() for item in self.items), 2)
+    def total_required_capital(self):
+        """Calculates total out-of-pocket cash required for all items at current bids."""
+        # MODIFIED: Replaced method call calculate_true_cost() with property item.true_cost
+        return round(sum(item.true_cost for item in self.items), 2)
 
     def total_projected_profit(self):
-        """Calculates total net profit across all items at current bids."""
-        return round(sum(item.calculate_net_profit() for item in self.items), 2)
+        """Calculates total net profit across all items in the manifest at current bids."""
+        # MODIFIED: Uses property item.net_profit directly
+        return round(sum(item.net_profit for item in self.items), 2)

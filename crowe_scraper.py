@@ -131,14 +131,12 @@ def export_to_manifest(data, filename="auction_manifest.csv"):
         "lot",
         "title",
         "bid",
-        "packaging",
-        "damaged",
         "projected_sale",
     ]
 
     # Open CSV file for writing with UTF-8 encoding and newline handling
     with open(filename, mode="w", newline="", encoding="utf-8") as outfile:
-        writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+        writer = csv.DictWriter(outfile, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()  # Write header row (lot, title, bid, packaging, damaged, projected_sale)
         writer.writerows(
             data
@@ -158,3 +156,8 @@ if __name__ == "__main__":
     lots = fetch_crowe_catalog(catalog_url=TARGET_CATALOG_URL, total_pages=18)
     # Write scraped lot records to auction_manifest.csv
     export_to_manifest(lots)
+
+def scrape_manifest(output_filename="auction_manifest.csv"):
+    """Runs the full scrape and exports to CSV in one step."""
+    lots = fetch_crowe_catalog()
+    export_to_manifest(lots, filename=output_filename)

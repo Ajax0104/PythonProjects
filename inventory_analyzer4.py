@@ -48,6 +48,7 @@ def main():
                         "ebay_title": comp.get("ebay_title", ""),
                         "ebay_price": comp.get("ebay_price", 0.0),
                         "item_url": comp.get("item_url", ""),
+                        "image_url": comp.get("image_url", "")
                     })
 
                 item = LotItem(

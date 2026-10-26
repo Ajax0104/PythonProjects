@@ -97,7 +97,8 @@ def fetch_lowest_active_bin(query_title):
                         raw_comps.append({
                             "ebay_title": item.get("title", ""),
                             "ebay_price": price_val,
-                            "item_url": item.get("itemWebUrl", "")
+                            "item_url": item.get("itemWebUrl", ""),
+                            "image_url": item.get("image", {}).get("imageUrl", "")
                         })
 
                 if prices:

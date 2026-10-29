@@ -13,10 +13,8 @@ def main():
     input_filename = "auction_manifest.csv"
     output_filename = "profitable_lots.csv"
 
-    try:
-        scrape_manifest(input_filename)
-    except Exception as e:
-        print(f"Scraper skipped/failed ({e})")
+    # A failed ingestion must stop before reading old data or pricing any lots.
+    scrape_manifest(input_filename)
 
     batch = Manifest("Crowe Owasso Manifest")
 

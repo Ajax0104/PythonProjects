@@ -1,10 +1,17 @@
 import csv  # Standard Python library to read and write CSV spreadsheet files
+import os
+from pathlib import Path
 import re  # Regular Expression library used to search, isolate, and clean text patterns
+import tempfile
 import time
 import requests  # HTTP library used to fetch web page source HTML from URLs
 from bs4 import (
     BeautifulSoup,
 )  # HTML parser library used to search and navigate web elements
+
+
+class IngestionError(RuntimeError):
+    """The requested catalog could not be safely collected or published."""
 
 
 def clean_lot_title(raw_text, lot_id):
@@ -46,7 +53,14 @@ def fetch_crowe_catalog(
     total_pages=18,
     max_retries=3,
 ):
-    """Scrapes lot titles, condition flags, current high bids, and lot IDs with automatic retry handling on timeouts."""
+    """Collect every requested page, or raise without returning partial data.
+
+    Checks cover request failures, pages without parseable lots, visible lot IDs
+    that cannot be parsed, and pages that add no new lots. They do not prove the
+    configured page count covers the auction or that HTML exposes every lot.
+    """
+    if total_pages < 1 or max_retries < 1:
+        raise IngestionError("total_pages and max_retries must be positive")
     headers = {
         "User-Agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -77,12 +91,16 @@ def fetch_crowe_catalog(
                 if attempt < max_retries:
                     time.sleep(2)  # Wait 2 seconds before retrying
                 else:
-                    print(
-                        f"Skipping page {page} after {max_retries} failed attempts."
-                    )
+                    raise IngestionError(
+                        f"Page {page} failed after {max_retries} attempts: {page_url}"
+                    ) from error
 
-        if not response or response.status_code != 200:
-            continue
+        if response.status_code != 200:
+            raise IngestionError(f"Page {page} returned unexpected HTTP {response.status_code}")
+
+        content_type = response.headers.get("Content-Type", "").split(";", 1)[0].lower().strip()
+        if content_type and content_type not in ("text/html", "application/xhtml+xml"):
+            raise IngestionError(f"Page {page} returned non-HTML content: {content_type}")
 
         soup = BeautifulSoup(response.text, "html.parser")
 
@@ -90,8 +108,12 @@ def fetch_crowe_catalog(
         if not lot_cards:
             lot_cards = soup.select("[class*='lot'], [class*='item']")
 
+        page_lots = set()
+        visible_lots = set()
+        previous_count = len(scraped_lots)
         for card in lot_cards:
             text = card.get_text(separator=" ", strip=True)
+            visible_lots.update(re.findall(r"Lot\s*(\d+)", text, re.I))
 
             lot_match = re.search(r"Lot\s*(\d+)", text, re.I)
             bid_match = re.search(r"\$(\d+\.\d{2})", text)
@@ -99,13 +121,16 @@ def fetch_crowe_catalog(
             if lot_match and bid_match:
                 lot_id = lot_match.group(1)
 
-                # Skip if lot was already scraped from a featured card or banner
+                bid = bid_match.group(1)
+                title, packaging, damaged = clean_lot_title(text, lot_id)
+                if not title:
+                    raise IngestionError(f"Page {page}: lot {lot_id} has no parseable title")
+                page_lots.add(lot_id)
+
+                # Keep the existing featured/banner deduplication behavior.
                 if lot_id in seen_lots:
                     continue
                 seen_lots.add(lot_id)
-
-                bid = bid_match.group(1)
-                title, packaging, damaged = clean_lot_title(text, lot_id)
 
                 scraped_lots.append(
                     {
@@ -118,13 +143,22 @@ def fetch_crowe_catalog(
                     }
                 )
 
+        if not page_lots:
+            raise IngestionError(f"Page {page} contains no parseable lots")
+        missing_lots = visible_lots - page_lots
+        if missing_lots:
+            raise IngestionError(
+                f"Page {page} contains unparseable lot IDs: {', '.join(sorted(missing_lots))}"
+            )
+        if len(scraped_lots) == previous_count:
+            raise IngestionError(f"Page {page} adds no new lots; pagination cannot be verified")
+
     return scraped_lots
 
 def export_to_manifest(data, filename="auction_manifest.csv"):
-    """Writes scraped lot dictionaries into auction_manifest.csv spreadsheet format."""
+    """Publish a complete CSV atomically, leaving the old file intact on failure."""
     if not data:
-        print("No lot data extracted. Check card selector or target URL.")
-        return
+        raise IngestionError("No lot data extracted; manifest was not replaced")
 
     # Column headers for generated CSV file
     fieldnames = [
@@ -134,13 +168,26 @@ def export_to_manifest(data, filename="auction_manifest.csv"):
         "projected_sale",
     ]
 
-    # Open CSV file for writing with UTF-8 encoding and newline handling
-    with open(filename, mode="w", newline="", encoding="utf-8") as outfile:
-        writer = csv.DictWriter(outfile, fieldnames=fieldnames, extrasaction="ignore")
-        writer.writeheader()  # Write header row (lot, title, bid, packaging, damaged, projected_sale)
-        writer.writerows(
-            data
-        )  # Write all scraped lot dictionary rows into spreadsheet
+    destination = Path(filename)
+    staged_path = None
+    try:
+        # Same directory keeps staging and replacement on the same filesystem.
+        with tempfile.NamedTemporaryFile(
+            mode="w", newline="", encoding="utf-8", dir=destination.parent,
+            prefix=f".{destination.name}.", suffix=".tmp", delete=False,
+        ) as outfile:
+            staged_path = Path(outfile.name)
+            writer = csv.DictWriter(outfile, fieldnames=fieldnames, extrasaction="ignore")
+            writer.writeheader()
+            writer.writerows(data)
+            outfile.flush()
+            os.fsync(outfile.fileno())
+        os.replace(staged_path, destination)
+    except (OSError, csv.Error) as error:
+        raise IngestionError(f"Could not publish manifest: {destination}") from error
+    finally:
+        if staged_path is not None:
+            staged_path.unlink(missing_ok=True)
 
     print(f"\nSuccessfully saved {len(data)} live scraped lots to '{filename}'")
 

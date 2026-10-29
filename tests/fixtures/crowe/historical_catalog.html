@@ -1,0 +1,76 @@
+<!doctype html>
+<!-- Sanitized structural fixture; shortened descriptions and synthetic image URLs. -->
+<p>0 Lots Total</p>
+<script>window.__APOLLO_STATE__ = {
+  "ROOT_QUERY": {
+    "auction({\"auction_id\":\"48980\"})": {
+      "__ref": "Auction.48980"
+    }
+  },
+  "Auction.48980": {
+    "__typename": "Auction",
+    "auction_id": "48980",
+    "auction_ref": "Auction-182833",
+    "title": "Amazon Semi Load Auction- 8166",
+    "auction_status": 300,
+    "start_time": "2026-10-07T16:00:00.000Z",
+    "end_time": "2026-10-26T23:00:00.000Z",
+    "public_url": "https://bids.crauctions.com/auctions/48980",
+    "lots({\"filter\":{\"auction_id\":\"48980\",\"is_visible\":true,\"limit_visibility_by_pick_up_locs\":true,\"auction_lot_status\":[200,300]},\"order\":[{\"column\":\"lot_number\",\"direction\":\"asc\"}],\"pagination\":{\"page\":1,\"pageSize\":50},\"search\":{\"text\":\"\"}})": {
+      "__typename": "AuctionLotSearchResult",
+      "total": 878,
+      "lots": [
+        {
+          "__ref": "AuctionLot.8078618"
+        }
+      ]
+    }
+  },
+  "AuctionLot.8078618": {
+    "__typename": "AuctionLot",
+    "auction_id": "48980",
+    "auction_lot_id": "8078618",
+    "lot_number": "8000",
+    "title": "Blue and White Flower Canvas Wall Art 12x16",
+    "description": "\u003cp>In Packaging?: Yes\u003cbr>Damaged?: Unknown\u003cbr>Short fixture description.\u003c/p>",
+    "auction_lot_status": 200,
+    "winning_bid_amount": 16,
+    "price": null,
+    "bid_count": 8,
+    "is_no_sale": false,
+    "pending_confirmation": null,
+    "start_time": "2026-10-07T16:00:00.000Z",
+    "end_time": "2026-10-26T23:00:00.000Z",
+    "public_url": "https://bids.crauctions.com/auctions/48980/lot/8078618",
+    "dynamic_fields": [
+      {
+        "__typename": "CategoryDynamicFieldCompositeWithData",
+        "dynamic_field_id": "61",
+        "label": "In Packaging",
+        "type": "dropdown",
+        "data": null,
+        "options": {
+          "description_label": "In Packaging"
+        }
+      }
+    ],
+    "primary_image": {
+      "attachment_id": 26315457,
+      "url": "https://images.example.invalid/26315457.jpg",
+      "file_name": "8000-1.jpg",
+      "asset_metadata": {
+        "type": "image/jpeg",
+        "target_gallery_key": "default"
+      },
+      "asset_url_image_variants": {
+        "thumb": "https://bids.crauctions.com/asset/image/26315457/thumb"
+      }
+    },
+    "image_count": 5,
+    "bid_with_premium": {
+      "__typename": "AuctionLotBidEstimateWithPremiumResult",
+      "premium": 3.2,
+      "total": 19.2
+    }
+  }
+};</script>

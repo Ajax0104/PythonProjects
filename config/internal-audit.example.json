@@ -1,0 +1,21 @@
+{
+  "label": "Historical auction #8166 — selected page 1",
+  "catalog_url": "https://bids.crauctions.com/auctions/48980-amazon-semi-load-auction-8166?page=1&items=50",
+  "auction_id": "48980",
+  "query_arguments": {
+    "filter": {
+      "auction_id": "48980",
+      "auction_lot_status": [200, 300],
+      "is_visible": true,
+      "limit_visibility_by_pick_up_locs": true
+    },
+    "order": [{"column": "lot_number", "direction": "asc"}],
+    "pagination": {"page": 1, "pageSize": 50},
+    "search": {"text": ""}
+  },
+  "reviewers": [
+    {"id": "owner", "label": "Project owner"},
+    {"id": "buyer", "label": "Auction buyer"}
+  ],
+  "ebay": {"marketplace_id": "EBAY_US", "filters": "buyingOptions:{FIXED_PRICE}", "sort": "price", "limit": 20}
+}
